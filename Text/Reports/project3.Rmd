@@ -1,0 +1,304 @@
+---
+title: "11_2homework"
+author: "Zhaoji Wu, Fanghan Yang, Zhenhang Weng, Xiyu Fan"
+date: "2021/11/1"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+Import the required packages during the experiment.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(reshape2)
+require(ggplot2)
+require(ggthemes)
+theme_set(theme_minimal())
+require(GGally)
+require(ggExtra)
+require(maxLik)
+require(knitr)
+```
+
+Load the data bright.Rdata, analyze and process this data
+```{r Load_Data}
+# paths
+source("../../Code/R/imagematrix.R")
+load("../../Data/Binary/bright.Rdata")
+# Inspect what they are in the Environment window
+
+typeof(bright)
+dim(bright)
+range(bright)
+
+channal<-1
+# vector.bright <- data.frame(as.vector(bright))
+vector.bright <- data.frame(UHV=as.vector(bright[,,channal]))
+summary(vector.bright)
+```
+
+
+Use imagematrix to display pictures(Including the original image, the processed function of the cumulative distribution, and the logarithm and normalized image)
+
+```{r img_plot,fig.align = "center",fig.cap="bright image"}
+plot(imagematrix(normalize(bright[,,channal])))
+ecdf.bright <- ecdf(unlist(vector.bright))
+eq.bright <- ecdf.bright(unlist(vector.bright))
+dim(eq.bright) <- dim(bright[,,channal])
+plot(imagematrix(eq.bright))
+plot(imagematrix(normalize(log(bright[,,channal]))))
+```
+From the above figure, it can be seen that most of the data are clustered in the smaller area of x, resulting in a poor display of the first half of the densely distributed distribution.So We change the x-axis range and output again.Further we modify the bins of the histogram to make it more clearly displayed.
+
+Draw a histogram of the data distribution and use different intervals to display the results. The data here is processed.
+Histogram of the original data distribution
+```{r Histogram,fig.align = "center",fig.cap="histogram"}
+vector.bright <- data.frame(as.vector(bright))
+ggplot(vector.bright, aes(x=bright)) +
+  geom_histogram(aes(y=..density..),
+                 bins=nclass.FD(unlist(vector.bright)),
+                 col="blue", fill="black") +
+  ylab("Density") +
+  xlab("Intensity") 
+
+ggplot(vector.bright, aes(x=bright)) +
+  geom_histogram(aes(y=..density..),
+                 bins=nclass.FD(unlist(vector.bright)),
+                 col="blue", fill="black") +
+  ylab("Density") +
+  xlab("Intensity range:(0-2e6)") +
+  xlim(0,2e6)
+
+
+ggplot(vector.bright, aes(x=bright)) +
+  geom_histogram(aes(y=..density..),
+                 alpha=0.5, 
+                 col="blue",fill="black",
+                 bins=nclass.FD(unlist(vector.bright))/100) +
+  ylab("Histogram")+
+  xlab("Intensity range:(0-2e6)") +
+  xlim(0,2e6)
+```
+
+
+## The first distribution -- the (SAR) Gamma distribution
+
+The distribution expression is $f_{\Gamma}(z;L,\mu)=\frac{L^{L}}{\mu^{L} \Gamma(L)} z^{L-1}exp{\{- \frac{Lz}{\mu}\}}$.
+
+1.Moment Estimation (L=1)
+
+$$
+\begin{cases}
+E(z)=\mu \\
+Var(z)=\frac{\mu ^{2}}{L}=\mu^{2}
+\end{cases}
+$$
+
+According to the above formula, we can get the estimated value of the parameter.
+
+$$
+\begin{cases}
+\hat{\mu}=E(z)\\
+\hat{L}=\frac{E(z)^2}{Var(z)}=1
+\end{cases}
+$$
+
+
+2.Maximun Likelihood Estimation
+
+The likelihood function is expressed as $g(Z;L,\mu)=\prod \limits_{i=0}^n f_{\Gamma}(z_{i};L,\mu)=\prod \limits_{i=1}^{n} \frac{L^{L}}{\mu^{L}\Gamma(L)} z_{i}^{L-1}exp{\{- \frac{Lz_{i}}{\mu}\}}=(\frac{L^{L}}{\mu^{L} \Gamma(L)})^{n} \cdot (\prod \limits_{i=1}^n z_{i})^{L-1}exp{\{- \frac{L}{\mu} \prod \limits_{i=1}^n z_{i}\}}$.
+The logarithmic likelihood function is expressed as $ln(g(L,\mu))=n \cdot ln(\frac{L^{L}}{\mu^{L}\cdot\Gamma(L)})+(L-1)\sum\limits_{i=1}^{n} ln(z_{i})-\frac{L}{\mu}\sum\limits_{i=1}^n z_{i}$.
+
+The maximum likelihood estimation of $\mu$ can be obtained by taking the derivative with respect to $\mu$ ($\frac{\partial ln(g(Z;L,\mu))}{\partial \mu}=n\cdot \frac{\mu^{L}\Gamma(L)}{L^{L-1}}\cdot(-\frac{L^{L}}{\Gamma(L)\mu^{L+1}})+\frac{L}{\mu^{2}}\sum\limits_{i=1}^nz_{i}$) and setting the partial derivative equal to 0 ($-\frac{n}{\mu}+\frac{1}{\mu^2}\sum\limits_{i=1}^nz_{i}=0$).
+
+The estimate of parameter $\mu$ is $\frac{1}{n}\sum\limits_{i=1}^nz_{i}$.
+
+## The second distribution -- the $G_{I}^{0}$ distribution
+
+
+
+The distribution expression is $f_{Z}(z;\alpha,\gamma,L)=\frac{L^{L}\Gamma(L-\alpha)}{\gamma^{\alpha}\Gamma^(L) \Gamma(-\alpha)} \frac{z^{L-1}}{(\gamma+Lz)^{L-\alpha}}$.
+The k-order moment of Z is expressed as $E(Z^{k})=(\frac{\gamma}{L})^k\frac{\Gamma(-\alpha-k)}{\Gamma(-\alpha)}\frac{\Gamma(L+k)}{\Gamma(L)}$.
+
+1.Moment Estimation 
+
+$$
+\begin{cases}
+E(z)=\frac{\gamma}{-\alpha-1} \\
+Var(z)=E(z^{2})-(E(z))^{2}=\gamma^2\frac{\Gamma(-\alpha-2)}{\Gamma(-\alpha)}\frac{\Gamma(1+2)}{\Gamma(1)}=\frac{2\gamma^{2}}{(-\alpha-1)(-\alpha-2)}-(\frac{\gamma}{-\alpha-1})^{2}
+\end{cases}
+$$
+
+By means of the above formulation, we can obtained the moment estimate of the parameter.
+
+$$
+\begin{cases}
+E(z)=\frac{\gamma}{-\alpha-1} \\
+Var(z)=\frac{\gamma^{2}\alpha}{(\alpha+1)^2(\alpha+2)}
+\end{cases}
+$$
+According to the above formula, we can get the estimated value of the parameter.
+
+
+$$
+\begin{cases}
+\alpha=-2-\frac{2(E(z))^2}{(E(z))^2+var(z)}\\
+\gamma=E(z)\cdot(2+\frac{2(E(z))^2}{(E(z))^2+var(z)})
+\end{cases}
+$$
+
+
+
+2.Maximun Likelihood Estimation
+
+The likelihood function is expressed as $g(Z,1;\alpha,\gamma)=\prod \limits_{i=0}^n f_{Z}(z_{i};\alpha,\gamma,L)=\prod \limits_{i=1}^{n} \frac{L^{L}\Gamma(L-\alpha)}{\gamma^{\alpha}\Gamma(L) \Gamma(-\alpha)} \frac{z_{i}^{L-1}}{(\gamma+Lz_{i})^{L-\alpha}}$.
+
+The logarithmic likelihood function is expressed as $ln(g(Z,1;\alpha,\gamma))=ln\frac{\Gamma(1-\alpha)}{\gamma^{\alpha}\Gamma(-\alpha)}+\sum\limits_{i=1}^nln\frac{z_{i}}{\gamma+z_{i}}+\alpha\sum\limits_{i=1}^nln(\gamma+z_{i})=ln(-\alpha)-\alpha ln(\gamma)+\sum\limits_{i=1}^nlnz_{i}+(\alpha-1)\sum\limits_{i=1}^nln(\gamma+z_{i})$.
+
+The maximum likelihood estimation of $\alpha$ and $\gamma$ can be obtained by taking the derivative with respect to $\alpha$ and $\gamma$ and setting the partial derivative equal to 0.
+
+$$
+\begin{cases}
+\frac{\partial ln(g(Z,1;\alpha,\gamma))}{\partial \alpha}=\frac{1}{\alpha}-ln\gamma+\sum\limits_{i=1}^nln(\gamma+z_{i})=0\\
+\frac{\partial ln(g(Z,1;\alpha,\gamma))}{\partial \gamma}=-\frac{\alpha}{\gamma}-(\alpha-1)\sum\limits_{i=1}^n\frac{1}{\gamma+z_{i}}=0
+\end{cases}
+$$
+
+By simplifying the above equation, we can get:
+
+$$
+\begin{cases}
+\alpha=\frac{1}{ln\gamma-\sum\limits_{i=1}^n ln(\gamma+z_{i})}=0\\
+-\gamma+\sum\limits_{i=1}^n\frac{1}{\gamma+z_{i}}[1-ln\gamma+\sum\limits_{i=1}^nln(\gamma+z_{i})]=0
+\end{cases}
+$$
+
+Obtained through the definition of the teacher github file
+```{r dgammaSAR and dGI0}
+#Chama as densid ades Gamma com os paramentros a parametrização do Modelo SAR de intensidade.
+#Função para Densidade DgammaSAR.
+#Entradas: x, Looks, mean
+
+dgammaSAR <- function(x, Looks, mean) {
+  
+  dgamma(x, shape=Looks, rate=Looks/mean)
+  
+}
+
+
+# Version 1: from scratch
+dGI0 <- function(z, p_alpha, p_gamma, p_Looks, log=FALSE) {
+  
+  if(log==TRUE) {
+    return(
+      (p_Looks*log(p_Looks) + lgamma(p_Looks-p_alpha) + (p_Looks-1)*log(z) ) - 
+        (p_alpha*log(p_gamma) + lgamma(-p_alpha) + lgamma(p_Looks) + 
+        (p_Looks-p_alpha)*log(p_gamma + z*p_Looks) ) 
+      )   
+    }
+  else { return( 
+    ( p_Looks^p_Looks * gamma(p_Looks-p_alpha) * z^(p_Looks-1) ) / 
+    (p_gamma^p_alpha * gamma(-p_alpha) * gamma(p_Looks) * (p_gamma + z*p_Looks)^(p_Looks-p_alpha)) 
+  )
+  }
+}
+```
+
+According to the formula,define the method of obtaining parameters by Moments estimators and Maximum Likelihood estimators.
+```{r Moments estimators}
+
+# comparison
+
+GI0.Estimator.m1m2 <- function(z, L) {
+  m1 <- mean(z)
+  m2 <- mean(z^2)
+  m212 <- m2/m1^2
+    
+  a <- -2 - (L+1) / (L * m212)
+  g <- m1 * (2 + (L+1) / (L * m212))
+  
+  return(list("alpha"=a, "gamma"=g))
+}
+
+```
+
+
+```{r Maximum Likelihood estimators}
+LogLikelihoodLknown <- function(params) {
+  
+  p_alpha <- -abs(params[1])
+  p_gamma <- abs(params[2])
+  p_L <- abs(params[3])
+  
+  n <- length(z)
+  
+  return(
+    n*(lgamma(p_L-p_alpha) - p_alpha*log(p_gamma) - lgamma(-p_alpha)) + 
+      (p_alpha-p_L)*sum(log(p_gamma + z*p_L)) 
+  )
+}
+```
+
+
+Use Moments estimators and Maximum Likelihood estimators to obtain the corresponding parameters to fit the curve.
+```{r use Gamma model(L) G0 model(a,y) to fit bright.data,fig.align = "center",fig.cap="Fit a model"}
+# comparison
+
+
+
+vector.bright <- data.frame(UHV = as.vector(bright))
+
+m<-mean(vector.bright$UHV)
+L<-1
+
+
+estim.Urban <- GI0.Estimator.m1m2(vector.bright$UHV, L)
+z <- vector.bright$UHV
+estim.UrbanML <- maxNR(LogLikelihoodLknown, 
+                       start=c(estim.Urban$alpha, estim.Urban$gamma,1), 
+                       activePar=c(TRUE,TRUE,FALSE))$estimate[1:2]
+
+# comparison
+
+
+a_estimate_1t <- estim.Urban$alpha
+g_estimate_1t <- estim.Urban$gamma
+
+a_estimate_2t <- estim.UrbanML[1]
+g_estimate_2t <- estim.UrbanML[2]
+
+
+
+
+intensity <- seq(0.001, 2e6, length.out = 1e5)
+
+dExp <- dgammaSAR(intensity,Looks=L, mean=m)
+dGI0Mom <- dGI0(intensity, p_alpha=a_estimate_1t, p_gamma=g_estimate_1t, p_Looks=L)
+dGI0ML <- dGI0(intensity, p_alpha=a_estimate_2t, p_gamma=g_estimate_2t, p_Looks=L)
+
+
+
+df.densities <- data.frame(intensity, dExp, dGI0Mom, dGI0ML)
+densities.flat <- melt(df.densities, 
+                       measure.vars = c("dExp", "dGI0Mom", "dGI0ML"))
+
+names(densities.flat) <- c("Intensity", "Density", "value")
+
+ggplot(data=vector.bright, aes(x=UHV)) +
+  geom_histogram(aes(y=..density..), col="purple",
+
+  bins=nclass.FD(unlist(vector.bright))/50) +
+
+  geom_line(data=densities.flat, aes(x=Intensity, y=value, col=Density),
+  lwd=1.5, alpha=.7) +
+  xlab("Intensities from the bright") +
+  ylab("Histogram, and fitted Exponential and G0 Laws") +
+  ggtitle("Restricted Histogram and fitted densities") +
+  theme_few()+
+
+  xlim(0,2e6)
+```
+The red line is the result of using SAR Gamma estimator.  
+The green line is the result of using G0 distribution combined with moment estimator.  
+The blue line is the result of using the G0 distribution combined with maximum likelihood estimator.  
